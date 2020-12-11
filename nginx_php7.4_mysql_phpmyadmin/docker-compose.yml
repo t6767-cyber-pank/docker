@@ -1,0 +1,84 @@
+version: '3.3'
+services:
+    web:
+        image: nginx:latest
+        ports:
+            - "80:80"
+        volumes:
+            - ./code:/usr/share/nginx/html
+            - ./templates:/etc/nginx/conf.d
+        container_name: web
+        restart: unless-stopped
+        links:
+            - php
+    php:
+        volumes:
+            - ./code:/usr/share/nginx/html
+        build: ./php
+        expose:
+        - "9000"
+        container_name: php
+        links:
+            - mysql
+    mysql:
+        image: mysql:latest
+        ports:
+            - "3306:3306"
+        container_name: mysql
+        restart: unless-stopped
+        environment:
+            - MYSQL_ROOT_PASSWORD=12345678
+            - MYSQL_DATABASE=mydatabase
+            - MYSQL_USER=t6767
+            - MYSQL_PASSWORD=12345678
+        volumes:
+            - ./MySQL:/var/lib/mysql
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: phpmyadmin
+        ports:
+            - 8090:80
+        links:
+            - mysql:db
+    composerLaravel:
+        image: composer
+        volumes:
+            - ./code/www/:/usr/share/nginx/html/www
+        working_dir: /usr/share/nginx/html/www
+        command: composer create-project --prefer-dist laravel/laravel lara
+        depends_on:
+          - php
+    composerLaravelUpdate:
+        image: composer
+        volumes:
+            - ./code/www/lara:/usr/share/nginx/html/www/lara
+        working_dir: /usr/share/nginx/html/www/lara
+        command: composer install
+        depends_on:
+          - composerLaravel
+    composerSymphony:
+        image: composer
+        volumes:
+            - ./code/www/:/usr/share/nginx/html/www
+        working_dir: /usr/share/nginx/html/www
+        command: composer create-project symfony/website-skeleton symfony
+        depends_on:
+          - php
+    composerSymphonyUpdate:
+        image: composer
+        volumes:
+            - ./code/www/symfony:/usr/share/nginx/html/www/symfony
+        working_dir: /usr/share/nginx/html/www/symfony
+        command: composer install
+        depends_on:
+          - composerSymphony
+    node:
+        image: node:13.12.0-alpine
+        container_name: nodejs
+        working_dir: /usr/share/nginx/html/www/lara
+        volumes:
+          - ./code/www/lara:/usr/share/nginx/html/www/lara
+#          - /usr/share/nginx/html/www/lara/node_modules
+        command: npm install cross-env
+        depends_on:
+          - composerLaravel

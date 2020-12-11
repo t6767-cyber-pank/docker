@@ -1,0 +1,114 @@
+version: '3.3'
+services:
+    alphine:
+        container_name: cron
+        build: ./server
+        working_dir: /usr/share/nginx/html/www/lara
+        networks:
+            - project-net
+        links:
+            - php
+        volumes:
+            - ./server/tabs:/etc/crontabs
+            - ./code:/usr/share/nginx/html
+    web:
+        build: ./nginx
+        ports:
+            - "80:80"
+        volumes:
+            - ./code:/usr/share/nginx/html
+            - ./templates:/etc/nginx/conf.d
+        container_name: web
+        restart: unless-stopped
+        links:
+            - php
+        networks:
+            - project-net
+    redis:
+        build: ./redis
+        container_name: redis
+        volumes:
+            - ./redis:/usr/local/etc/redis/
+#          - ./redis/data:/data
+        ports:
+            - 6380:6380
+        user: redis
+        command: ["redis-server", "--appendonly", "yes"]
+        hostname: redis-server
+        networks:
+            - project-net
+    php:
+        volumes:
+            - ./code:/usr/share/nginx/html
+        build: ./php
+        expose:
+            - "9000"
+        container_name: php
+        environment:
+            - "DB_HOST=mariadb"
+            - "REDIS_HOST=redis"
+            - "RABBITMQ_HOST=rabbitmq"
+            - "QUEUE_CONNECTION=rabbitmq"
+        links:
+            - db
+            - redis
+            - rabbitmq
+        depends_on:
+            - rabbitmq
+            - redis
+            - db
+        networks:
+            - project-net
+    db:
+        image: mariadb
+        ports:
+            - "3306:3306"
+        restart: always
+        container_name: mariadb
+        environment:
+            MYSQL_ROOT_PASSWORD: 12345678    
+            MYSQL_DATABASE: project
+        volumes:
+            - ./MySQL:/var/lib/mysql
+        networks:
+            - project-net
+    adminer:
+        image: adminer
+        restart: always
+        ports:
+            - 6080:8080
+        networks:
+            - project-net
+    composerLaravel:
+        image: composer
+        volumes:
+            - ./code/www/lara:/usr/share/nginx/html/www/lara
+        working_dir: /usr/share/nginx/html/www/lara
+        command: composer install --ignore-platform-reqs
+        networks:
+            - project-net
+    node:
+        image: node:13.12.0-alpine
+        container_name: nodejs
+        working_dir: /usr/share/nginx/html/www/lara
+        volumes:
+          - ./code/www/lara:/usr/share/nginx/html/www/lara
+        command: npm install cross-env
+        depends_on:
+            - composerLaravel
+        networks:
+            - project-net
+    rabbitmq:
+        image: rabbitmq:3.8-rc-management-alpine
+        container_name: rabbitmq
+        environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASSWORD: guest
+        networks:
+            - project-net
+        ports:
+            - 5672:5672
+            - 15672:15672
+networks:
+    project-net:
+        driver: bridge

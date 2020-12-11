@@ -1,0 +1,4 @@
+* * * * * pwd
+* * * * * root php artisan cron:run
+* * * * * root echo "Hello world"
+# Don't remove the empty line at the end of this file. It is required to run the cron job

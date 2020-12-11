@@ -1,0 +1,4 @@
+localhost
+site.loc
+project1.loc
+project2.loc
